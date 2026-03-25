@@ -121,9 +121,7 @@ curl http://127.0.0.1:5000/jogos/1
 ```
 
 ```bash
-curl -X POST http://127.0.0.1:5000/jogos \
--H "Content-Type: application/json" \
--d '{"titulo":"Minecraft","genero":"Sandbox","plataforma":"PC","preco":79.90}'
+curl -X POST http://127.0.0.1:5000/jogos -H "Content-Type: application/json" -d "{\"titulo\":\"Minecraft\",\"genero\":\"Sandbox\",\"plataforma\":\"PC\",\"preco\":79.90}"
 ```
 
 ---
@@ -135,9 +133,7 @@ curl -X POST http://127.0.0.1:5000/jogos \
 * Status: 204 No Content / 404 Not Found
 
 ```bash
-curl -X PUT http://127.0.0.1:5000/jogos/1 \
--H "Content-Type: application/json" \
--d '{"titulo":"Minecraft","genero":"Sandbox","plataforma":"PC","preco":89.90}'
+curl -X PUT http://127.0.0.1:5000/jogos -H "Content-Type: application/json" -d "{\"titulo\":\"Minecraft\",\"genero\":\"Sandbox\",\"plataforma\":\"PC\",\"preco\":79.90}"
 ```
 
 ---
