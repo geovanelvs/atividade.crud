@@ -1,96 +1,104 @@
 from flask import Flask, jsonify, request
-import sqlite3
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-def executar_query(query, *args, fetch=False, commit=False):
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    resultado = None
+# ALTERAÇÃO: configurando o banco via SQLAlchemy (não usamos mais sqlite3 direto)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    try:
-        cursor.execute(query, args)
+db = SQLAlchemy(app)
 
-        if commit:
-            conn.commit()
-        if fetch:
-            resultado = cursor.fetchall()
-    finally:
-        conn.close()
+# ALTERAÇÃO: modelo da tabela usando ORM
+class Jogo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(100), nullable=False)
+    genero = db.Column(db.String(100), nullable=False)
+    plataforma = db.Column(db.String(100), nullable=False)
+    preco = db.Column(db.Float, nullable=False)
 
-    return resultado
+# ALTERAÇÃO: criação automática do banco (substitui init_db.py)
+with app.app_context():
+    db.create_all()
 
-# GET todos 
+# GET - listar todos
 @app.route('/jogos', methods=['GET'])
 def listar_jogos():
-    jogos = executar_query("SELECT * FROM jogos", fetch=True)
-    return jsonify([dict(j) for j in jogos]), 200
+    jogos = Jogo.query.all()
+    return jsonify([
+        {
+            "id": j.id,
+            "titulo": j.titulo,
+            "genero": j.genero,
+            "plataforma": j.plataforma,
+            "preco": j.preco
+        } for j in jogos
+    ])
 
-# GET por ID 
+# GET - buscar por id
 @app.route('/jogos/<int:id>', methods=['GET'])
 def buscar_jogo(id):
-    jogo = executar_query("SELECT * FROM jogos WHERE id = ?", id, fetch=True)
+    jogo = Jogo.query.get(id)
 
     if not jogo:
         return jsonify({"erro": "Jogo não encontrado"}), 404
 
-    return jsonify(dict(jogo[0])), 200
+    return jsonify({
+        "id": jogo.id,
+        "titulo": jogo.titulo,
+        "genero": jogo.genero,
+        "plataforma": jogo.plataforma,
+        "preco": jogo.preco
+    })
 
-# POST 
+# POST - inserir
 @app.route('/jogos', methods=['POST'])
-def criar_jogo():
+def inserir_jogo():
     dados = request.get_json()
 
-    executar_query(
-        "INSERT INTO jogos (titulo, genero, plataforma, preco) VALUES (?, ?, ?, ?)",
-        dados.get('titulo'),
-        dados.get('genero'),
-        dados.get('plataforma'),
-        dados.get('preco'),
-        commit=True
+    novo = Jogo(
+        titulo=dados['titulo'],
+        genero=dados['genero'],
+        plataforma=dados['plataforma'],
+        preco=dados['preco']
     )
+
+    db.session.add(novo)
+    db.session.commit()
 
     return jsonify({"mensagem": "Jogo criado com sucesso!"}), 201
 
-# PUT 
+# PUT - atualizar
 @app.route('/jogos/<int:id>', methods=['PUT'])
 def atualizar_jogo(id):
-    dados = request.get_json()
+    jogo = Jogo.query.get(id)
 
-    existe = executar_query("SELECT id FROM jogos WHERE id = ?", id, fetch=True)
-
-    if not existe:
+    if not jogo:
         return jsonify({"erro": "Jogo não encontrado"}), 404
 
-    executar_query(
-        "UPDATE jogos SET titulo=?, genero=?, plataforma=?, preco=? WHERE id=?",
-        dados.get('titulo'),
-        dados.get('genero'),
-        dados.get('plataforma'),
-        dados.get('preco'),
-        id,
-        commit=True
-    )
+    dados = request.get_json()
+
+    jogo.titulo = dados['titulo']
+    jogo.genero = dados['genero']
+    jogo.plataforma = dados['plataforma']
+    jogo.preco = dados['preco']
+
+    db.session.commit()
 
     return '', 204
 
-# DELETE 
+# DELETE - remover
 @app.route('/jogos/<int:id>', methods=['DELETE'])
 def deletar_jogo(id):
-    existe = executar_query("SELECT id FROM jogos WHERE id = ?", id, fetch=True)
+    jogo = Jogo.query.get(id)
 
-    if not existe:
+    if not jogo:
         return jsonify({"erro": "Jogo não encontrado"}), 404
 
-    executar_query("DELETE FROM jogos WHERE id = ?", id, commit=True)
+    db.session.delete(jogo)
+    db.session.commit()
 
-    return jsonify({"mensagem": "Jogo removido com sucesso!"}), 200
-
-# rota inicial para testar se a API está funcionando
-@app.route('/')
-def home():
-    return "API de Inventário de Jogos funcionando!"
+    return jsonify({"mensagem": "Jogo removido com sucesso!"})
 
 if __name__ == '__main__':
     app.run(debug=True)
